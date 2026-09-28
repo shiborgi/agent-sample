@@ -119,7 +119,7 @@ Checagens do workflow (`domain/review/checks.py`), só em linhas adicionadas:
 
 | Checagem | Achado |
 |---|---|
-| `secrets` | chave AWS, token GitHub/Slack, `sk-...`, chave privada, `api_key = "..."` → `critical/security` |
+| `secrets` | chave AWS, token GitHub/Slack, `sk-...`, chave Stripe (`sk_live_...`), token JWT, chave privada, `api_key = "..."` → `critical/security` |
 | `debug-leftovers` | `print(`, `breakpoint()`, `pdb`, `console.log`, `debugger`, `binding.pry`; 3+ linhas de código comentado → `minor/maintainability` |
 | `missing-tests` | código-fonte alterado sem nenhum arquivo de teste no diff → um achado `minor/tests` |
 | `pending-markers` | `TODO`/`FIXME` adicionados → `nit/maintainability` |

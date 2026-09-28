@@ -9,6 +9,11 @@ SECRET_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
     ("token do GitHub", re.compile(r"\b(gh[pousr]_[A-Za-z0-9]{36,})\b")),
     ("token do Slack", re.compile(r"\b(xox[abprs]-[A-Za-z0-9-]{10,})\b")),
     ("chave de API", re.compile(r"\b(sk-[A-Za-z0-9_-]{20,})")),
+    ("chave da Stripe", re.compile(r"\b((?:sk|rk)_(?:live|test)_[A-Za-z0-9]{16,})")),
+    (
+        "token JWT",
+        re.compile(r"\b(eyJ[A-Za-z0-9_-]{8,}\.eyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{6,})"),
+    ),
     ("chave privada", re.compile(r"(-----BEGIN (?:[A-Z]+ )?PRIVATE KEY-----)")),
     (
         "segredo atribuído no código",
@@ -18,7 +23,9 @@ SECRET_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
         ),
     ),
 )
-PLACEHOLDER = re.compile(r"(?i)example|changeme|placeholder|dummy|x{4,}|\*{4,}|^<.*>$|^\$\{")
+PLACEHOLDER = re.compile(
+    r"(?i)example|changeme|placeholder|dummy|x{4,}|\*{4,}|^<.*>$|^\$\{|^your[-_]|[-_]here$"
+)
 
 
 def secret_kind(text: str) -> str | None:

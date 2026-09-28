@@ -14,6 +14,7 @@ from agent_sample.infrastructure.workflow.sequential import SequentialEngine
 # Segredos montados em partes para não parecerem credenciais reais no repositório.
 AWS_KEY = "AKIA" + "Q" * 16
 GITHUB_TOKEN = "ghp_" + "a1" * 18
+STRIPE_KEY = "sk_" + "live_" + "b2" * 12
 
 
 def added(path: str, *lines: str) -> str:
@@ -38,6 +39,8 @@ def by_source(result: Review, source: str) -> list[Finding]:
         "-----BEGIN RSA PRIVATE KEY-----",
         'API_KEY = "9f8e7d6c5b4a39281706"',
         '{"password": "s3nh4-f0rte!"}',
+        f'STRIPE = "{STRIPE_KEY}"',
+        'HEADERS = {"Authorization": "Bearer eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxIn0.abc123def456"}',
     ],
 )
 def test_secrets_are_critical_security_findings(line: str) -> None:
@@ -59,6 +62,8 @@ def test_secret_evidence_is_masked() -> None:
         'api_key = "${API_KEY_FROM_ENV}"',
         "token = os.environ['TOKEN']",
         'secret = "short"',
+        'api_key = "your-api-key"',
+        'token = "paste-token-here"',
     ],
 )
 def test_placeholders_and_env_lookups_are_not_secrets(line: str) -> None:
