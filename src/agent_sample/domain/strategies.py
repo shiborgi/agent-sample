@@ -1,7 +1,6 @@
 import logging
 
-from agent_sample.domain.content import PromptVersion, SkillVersion, render_prompt
-from agent_sample.domain.contract import parse_answer
+from agent_sample.domain.content import AgentRequest, PromptVersion, SkillVersion
 from agent_sample.domain.model import (
     SAFE_SUBJECT,
     ClassificationFailed,
@@ -9,6 +8,7 @@ from agent_sample.domain.model import (
     Step,
     SubjectError,
     Verdict,
+    subject_by_id,
 )
 from agent_sample.domain.ports import Agent, Predictor, WorkflowEngine
 from agent_sample.domain.rules import RuleOutcome
@@ -61,11 +61,11 @@ class AgentStrategy:
     async def consult(self, text: str) -> tuple[str, str, Step]:
         toolbox = Toolbox(self._skills)
         try:
-            answer = await self._agent.run(render_prompt(self._prompt, self._skills), text, toolbox)
-            subject_id, rationale = parse_answer(answer, self.name)
+            answer = await self._agent.run(AgentRequest(text, self._prompt, self._skills), toolbox)
+            subject_by_id(answer.subject_id)
         except Exception as exc:
             raise AgentAttemptFailed(self._step("failed", str(exc), toolbox), exc) from exc
-        return subject_id, rationale, self._step("decided", rationale, toolbox)
+        return answer.subject_id, answer.rationale, self._step("decided", answer.rationale, toolbox)
 
     async def classify(self, text: str) -> Verdict:
         subject_id, rationale, step = await self.consult(text)

@@ -2,9 +2,13 @@ from typing import Any, Literal
 
 from langgraph.graph import END, START, StateGraph
 
+from agent_sample.domain.content import AgentAnswer, AgentRequest
 from agent_sample.domain.model import ClassificationFailed
 from agent_sample.domain.policy import MAX_TOOL_ROUNDS
-from agent_sample.domain.ports import ChatMessage, ModelGateway, ToolCall, ToolCatalog
+from agent_sample.domain.ports import ToolCatalog
+from agent_sample.infrastructure.agents.answer import parse_answer
+from agent_sample.infrastructure.content.render import render_prompt
+from agent_sample.infrastructure.model.ports import ChatMessage, ModelGateway, ToolCall
 
 
 class LangGraphAgent:
@@ -15,13 +19,14 @@ class LangGraphAgent:
     def __init__(self, gateway: ModelGateway) -> None:
         self._gateway = gateway
 
-    async def run(self, system: str, user: str, tools: ToolCatalog) -> str:
+    async def run(self, request: AgentRequest, tools: ToolCatalog) -> AgentAnswer:
         graph = _graph(self._gateway, tools)
+        system = render_prompt(request.prompt, request.skills)
         result = await graph.ainvoke(
             {
                 "messages": [
                     _dump(ChatMessage(role="system", content=system)),
-                    _dump(ChatMessage(role="user", content=user)),
+                    _dump(ChatMessage(role="user", content=request.text)),
                 ],
                 "rounds": 0,
             }
@@ -29,7 +34,7 @@ class LangGraphAgent:
         last = _load(result["messages"][-1])
         if last.role != "assistant" or last.tool_calls:
             raise ClassificationFailed(self.name, "agent ended without an answer")
-        return last.content
+        return parse_answer(last.content, self.name)
 
 
 def _graph(gateway: ModelGateway, catalog: ToolCatalog) -> Any:

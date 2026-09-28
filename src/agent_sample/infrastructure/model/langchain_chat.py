@@ -6,7 +6,8 @@ from langchain_core.messages import AIMessage, BaseMessage
 from langchain_core.outputs import ChatGeneration, ChatResult
 from pydantic import ConfigDict, PrivateAttr
 
-from agent_sample.domain.ports import ChatMessage, ModelGateway, ToolCall, ToolSpec
+from agent_sample.domain.ports import ToolSpec
+from agent_sample.infrastructure.model.ports import ChatMessage, ModelGateway, ToolCall
 
 
 class GatewayChatModel(BaseChatModel):

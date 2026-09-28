@@ -1,52 +1,25 @@
 from collections.abc import Sequence
 from dataclasses import dataclass
-from typing import Any, Literal, Protocol
+from typing import Any, Protocol
 
-from agent_sample.domain.content import PromptVersion, SkillVersion
+from agent_sample.domain.content import AgentAnswer, AgentRequest, PromptVersion, SkillVersion
 from agent_sample.domain.model import Verdict
 from agent_sample.domain.workflow import WorkflowState, WorkflowStep
 
 
 @dataclass(frozen=True, slots=True)
-class ToolCall:
-    id: str
-    name: str
-    arguments: dict[str, Any]
-
-
-@dataclass(frozen=True, slots=True)
 class ToolSpec:
+    """Contrato de uma ferramenta oferecida ao agente, independente do framework."""
+
     name: str
     description: str
     parameters: dict[str, Any]
 
 
 @dataclass(frozen=True, slots=True)
-class ChatMessage:
-    role: Literal["system", "user", "assistant", "tool"]
-    content: str
-    tool_call_id: str | None = None
-    tool_calls: tuple[ToolCall, ...] = ()
-
-
-@dataclass(frozen=True, slots=True)
-class Completion:
-    text: str
-    tool_calls: tuple[ToolCall, ...] = ()
-
-
-@dataclass(frozen=True, slots=True)
 class Prediction:
     subject_id: str
     confidence: float | None
-
-
-class ModelGateway(Protocol):
-    async def complete(
-        self,
-        messages: Sequence[ChatMessage],
-        tools: Sequence[ToolSpec] = (),
-    ) -> Completion: ...
 
 
 class ToolCatalog(Protocol):
@@ -62,11 +35,14 @@ class WorkflowEngine(Protocol):
 
 
 class Agent(Protocol):
-    """Um modelo que raciocina, decide quando usar ferramentas e devolve a resposta final."""
+    """Um modelo que raciocina, decide quando usar ferramentas e devolve a resposta final.
+
+    Como o prompt vira mensagens e como a resposta do modelo é lida é problema da infra.
+    """
 
     name: str
 
-    async def run(self, system: str, user: str, tools: ToolCatalog) -> str: ...
+    async def run(self, request: AgentRequest, tools: ToolCatalog) -> AgentAnswer: ...
 
 
 class Predictor(Protocol):

@@ -3,7 +3,8 @@ from collections.abc import Sequence
 
 import httpx
 
-from agent_sample.domain.ports import ChatMessage, Completion, ToolCall, ToolSpec
+from agent_sample.domain.ports import ToolSpec
+from agent_sample.infrastructure.model.ports import ChatMessage, Completion, ToolCall
 
 
 class OpenAICompatibleGateway:

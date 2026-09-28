@@ -4,8 +4,9 @@ import re
 from dataclasses import replace
 from pathlib import Path
 
-from agent_sample.domain.content import AgentTask, PromptVersion, SkillVersion, unknown_placeholders
+from agent_sample.domain.content import AgentTask, PromptVersion, SkillVersion
 from agent_sample.domain.model import ContentError
+from agent_sample.infrastructure.content.render import unknown_placeholders
 
 VERSION = re.compile(r"v(\d+)")
 KINDS = {"prompt": "prompts", "skill": "skills"}

@@ -1,15 +1,16 @@
 import json
 
+from agent_sample.domain.content import AgentAnswer
 from agent_sample.domain.model import ClassificationFailed, subject_by_id
 
 
-def parse_answer(text: str, source: str) -> tuple[str, str]:
-    """Lê a resposta final do agente: JSON com `subject_id` e `rationale`."""
+def parse_answer(text: str, source: str) -> AgentAnswer:
+    """Lê a resposta final do modelo: JSON com `subject_id` e `rationale`."""
     try:
         payload = _extract_json(text)
         subject_id = str(payload["subject_id"])
         subject_by_id(subject_id)
-        return subject_id, str(payload.get("rationale") or "")
+        return AgentAnswer(subject_id, str(payload.get("rationale") or ""))
     except (KeyError, TypeError, ValueError) as exc:
         raise ClassificationFailed(source, "response was not a subject verdict") from exc
 

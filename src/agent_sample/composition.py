@@ -8,13 +8,7 @@ from pathlib import Path
 from agent_sample.application.service import ClassificationService, ClassifyOptions, error_message
 from agent_sample.domain.content import CLASSIFY_TASK, SkillVersion
 from agent_sample.domain.model import ContentError, SubjectError, UnknownOption
-from agent_sample.domain.ports import (
-    Agent,
-    ModelGateway,
-    Predictor,
-    SubjectClassifier,
-    WorkflowEngine,
-)
+from agent_sample.domain.ports import Agent, Predictor, SubjectClassifier, WorkflowEngine
 from agent_sample.domain.strategies import (
     AgentStrategy,
     HybridStrategy,
@@ -25,6 +19,7 @@ from agent_sample.infrastructure.agents.deepagents import DeepAgentsAgent
 from agent_sample.infrastructure.agents.langgraph import LangGraphAgent
 from agent_sample.infrastructure.content.files import FileContentLibrary
 from agent_sample.infrastructure.model.openai_compatible import OpenAICompatibleGateway
+from agent_sample.infrastructure.model.ports import ModelGateway
 from agent_sample.infrastructure.model.unconfigured import UnconfiguredGateway
 from agent_sample.infrastructure.prediction.laya import LayaPredictor
 from agent_sample.infrastructure.workflow.langgraph import LangGraphEngine

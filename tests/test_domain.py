@@ -14,6 +14,13 @@ def test_verdict_rejects_unknown_subject() -> None:
         Verdict("nope", "x", "test", (STEP,))
 
 
+@pytest.mark.parametrize("kind", ["workflow", "fallback"])
+def test_rules_and_fallback_never_report_confidence(kind: str) -> None:
+    step = Step(kind, "test", "decided", "")  # type: ignore[arg-type]
+    with pytest.raises(ValueError, match="never report confidence"):
+        Verdict("billing", "x", "test", (step,), confidence=0.9)
+
+
 def test_verdict_requires_a_path() -> None:
     with pytest.raises(ValueError, match="path"):
         Verdict("other", "x", "test", ())

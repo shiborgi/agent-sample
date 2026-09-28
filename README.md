@@ -96,6 +96,13 @@ composition.py Único ponto que conhece as implementações concretas.
 de `os`/`pathlib`, porque não sabe onde o conteúdo mora); a application só conhece domínio e
 protocolos; a infra não conhece application; só a composição importa a infra.
 
+O domínio também não conhece o protocolo do modelo. A porta de agente é
+`Agent.run(AgentRequest, ToolCatalog) -> AgentAnswer`: o domínio entrega a mensagem, a versão do
+prompt e as skills, e recebe assunto e justificativa. Mensagens de chat e gateway
+(`infrastructure/model/ports.py`), montagem do prompt de sistema
+(`infrastructure/content/render.py`) e leitura do JSON do modelo
+(`infrastructure/agents/answer.py`) ficam na infra.
+
 ## Prompts e skills
 
 ```
@@ -128,8 +135,9 @@ src/agent_sample/content/
   a recebem automaticamente.
 - **Novo motor de workflow:** implemente `WorkflowEngine.run(steps, state)` em
   `infrastructure/workflow/` e registre em `ENGINES` (`composition.py`).
-- **Novo agente de outro framework:** implemente `Agent.run(system, user, tools) -> str` em
-  `infrastructure/agents/` e registre em `AGENTS` (`composition.py`).
+- **Novo agente de outro framework:** implemente `Agent.run(request, tools) -> AgentAnswer` em
+  `infrastructure/agents/`, montando o prompt com `render_prompt` e lendo a resposta com
+  `parse_answer`, e registre em `AGENTS` (`composition.py`).
 - **Nova estratégia:** crie a classe em `domain/strategies.py` (qualquer objeto com `name` e
   `classify(text) -> Verdict`) e registre o construtor em `STRATEGIES` (`composition.py`).
 

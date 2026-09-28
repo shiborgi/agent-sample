@@ -34,3 +34,10 @@ def test_engines_produce_the_same_verdicts() -> None:
         right = asyncio.run(WorkflowStrategy(LangGraphEngine()).classify(text))
         assert (left.subject_id, left.rationale) == (right.subject_id, right.rationale)
         assert right.decided_by == "workflow:langgraph"
+
+
+def test_langgraph_engine_compiles_the_workflow_once() -> None:
+    engine = LangGraphEngine()
+    for text in CORPUS:
+        asyncio.run(engine.run(WORKFLOW, WorkflowState(text)))
+    assert len(engine._graphs) == 1

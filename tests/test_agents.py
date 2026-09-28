@@ -3,6 +3,8 @@ import asyncio
 import pytest
 
 from agent_sample.application.service import ClassifyOptions
+from agent_sample.domain.model import ClassificationFailed
+from agent_sample.infrastructure.agents.answer import parse_answer
 from agent_sample.infrastructure.prediction.laya import LayaPredictor
 from tests.fakes import ScriptedGateway, composition
 
@@ -56,3 +58,10 @@ def test_laya_question_uses_the_domain_catalog() -> None:
     assert set(seen["criteria"]) == {"billing", "technical", "sales", "other"}  # type: ignore[arg-type]
     assert prediction.subject_id == "sales"
     assert prediction.confidence == pytest.approx(0.7)
+
+
+def test_model_answer_is_read_by_the_infrastructure() -> None:
+    answer = parse_answer('ok: {"subject_id": "sales", "rationale": "pede demo"}', "fake")
+    assert (answer.subject_id, answer.rationale) == ("sales", "pede demo")
+    with pytest.raises(ClassificationFailed, match="not a subject verdict"):
+        parse_answer("acho que é cobrança", "fake")

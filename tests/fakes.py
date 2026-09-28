@@ -4,17 +4,11 @@ from collections.abc import Sequence
 from pathlib import Path
 
 from agent_sample.composition import CONTENT_ROOT, Composition
+from agent_sample.domain.content import AgentAnswer, AgentRequest
 from agent_sample.domain.model import Step, Verdict
-from agent_sample.domain.ports import (
-    ChatMessage,
-    Completion,
-    ModelGateway,
-    Prediction,
-    ToolCall,
-    ToolCatalog,
-    ToolSpec,
-)
+from agent_sample.domain.ports import Prediction, ToolCatalog, ToolSpec
 from agent_sample.infrastructure.content.files import FileContentLibrary
+from agent_sample.infrastructure.model.ports import ChatMessage, Completion, ModelGateway, ToolCall
 
 
 class ScriptedGateway:
@@ -63,13 +57,13 @@ class FixedAgent:
         self._error = error
         self.calls = 0
 
-    async def run(self, system: str, user: str, tools: ToolCatalog) -> str:
-        del system, user
+    async def run(self, request: AgentRequest, tools: ToolCatalog) -> AgentAnswer:
+        del request
         self.calls += 1
         await tools.call("load_skill", {"name": "out-of-scope"})
         if self._error is not None:
             raise self._error
-        return _answer(self._subject_id)
+        return AgentAnswer(self._subject_id, "scripted")
 
 
 class FixedPredictor:

@@ -3,7 +3,7 @@ import logging
 
 import pytest
 
-from agent_sample.domain.content import CLASSIFY_TASK
+from agent_sample.domain.content import CLASSIFY_TASK, AgentAnswer
 from agent_sample.domain.model import ClassificationFailed
 from agent_sample.domain.strategies import (
     AgentAttemptFailed,
@@ -67,13 +67,13 @@ def test_agent_strategy_reports_failure_with_its_step() -> None:
     assert "offline" in str(info.value)
 
 
-def test_agent_answer_outside_the_contract_fails() -> None:
-    class Rambling(FixedAgent):
-        async def run(self, system, user, tools):  # type: ignore[no-untyped-def]
-            return "acho que é cobrança"
+def test_agent_answer_outside_the_subjects_fails() -> None:
+    class Inventive(FixedAgent):
+        async def run(self, request, tools):  # type: ignore[no-untyped-def]
+            return AgentAnswer("refund", "inventou um assunto")
 
-    with pytest.raises(AgentAttemptFailed, match="not a subject verdict"):
-        asyncio.run(_agent(Rambling()).classify("oi"))
+    with pytest.raises(AgentAttemptFailed, match="unknown subject: refund"):
+        asyncio.run(_agent(Inventive()).classify("oi"))
 
 
 def test_agents_do_not_invent_confidence() -> None:

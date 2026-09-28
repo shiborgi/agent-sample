@@ -1,9 +1,4 @@
 from dataclasses import dataclass
-from string import Template
-
-from agent_sample.domain.model import SUBJECTS
-
-PLACEHOLDERS = frozenset({"subjects", "skills"})
 
 
 @dataclass(frozen=True, slots=True)
@@ -42,15 +37,18 @@ class AgentTask:
 CLASSIFY_TASK = AgentTask("classify_subject", ("subject-boundaries", "out-of-scope"))
 
 
-def unknown_placeholders(template: str) -> set[str]:
-    parsed = Template(template)
-    if not parsed.is_valid():
-        return {"<invalid $ placeholder>"}
-    return set(parsed.get_identifiers()) - PLACEHOLDERS
+@dataclass(frozen=True, slots=True)
+class AgentRequest:
+    """O que um agente recebe: a mensagem e o conteúdo versionado que o guia."""
+
+    text: str
+    prompt: PromptVersion
+    skills: tuple[SkillVersion, ...]
 
 
-def render_prompt(prompt: PromptVersion, skills: tuple[SkillVersion, ...]) -> str:
-    """Monta o prompt de sistema. Skills entram só como índice; o corpo vem via load_skill."""
-    subjects = "\n".join(f"- {subject.id}: {subject.description}" for subject in SUBJECTS)
-    index = "\n".join(f"- {skill.name}: {skill.description}" for skill in skills) or "- (nenhuma)"
-    return Template(prompt.template).substitute(subjects=subjects, skills=index)
+@dataclass(frozen=True, slots=True)
+class AgentAnswer:
+    """A resposta final do agente, já fora do formato do modelo."""
+
+    subject_id: str
+    rationale: str

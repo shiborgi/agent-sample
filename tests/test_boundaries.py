@@ -9,6 +9,8 @@ PACKAGE = "agent_sample"
 DOMAIN_BANNED_STDLIB = {"os", "pathlib", "importlib", "io", "shutil", "glob"}
 # application: só os protocolos de entrada e saída.
 APPLICATION_THIRD_PARTY = {"typer", "a2a", "starlette", "uvicorn"}
+# protocolo de chat com o modelo: só a infra conhece.
+LLM_PROTOCOL = {"ChatMessage", "Completion", "ModelGateway", "ToolCall"}
 
 
 def test_domain_only_uses_stdlib_and_itself() -> None:
@@ -20,6 +22,21 @@ def test_domain_only_uses_stdlib_and_itself() -> None:
             else:
                 assert top in sys.stdlib_module_names, f"{path} imports {module}"
                 assert top not in DOMAIN_BANNED_STDLIB, f"{path} imports {module}"
+
+
+def test_domain_does_not_know_the_llm_protocol() -> None:
+    """Mensagens de chat, gateway de modelo e renderização de prompt são detalhes da infra."""
+    for path in (ROOT / "domain").rglob("*.py"):
+        tree = ast.parse(path.read_text())
+        names = {node.name for node in ast.walk(tree) if isinstance(node, ast.ClassDef)}
+        names |= {
+            alias.name
+            for node in ast.walk(tree)
+            if isinstance(node, ast.ImportFrom)
+            for alias in node.names
+        }
+        assert not names & LLM_PROTOCOL, f"{path} knows {names & LLM_PROTOCOL}"
+        assert "string" not in _modules(tree), f"{path} renders prompt templates"
 
 
 def test_application_only_knows_domain_and_protocols() -> None:

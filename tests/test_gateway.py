@@ -3,8 +3,9 @@ import json
 
 import httpx
 
-from agent_sample.domain.ports import ChatMessage, ToolSpec
+from agent_sample.domain.ports import ToolSpec
 from agent_sample.infrastructure.model.openai_compatible import OpenAICompatibleGateway
+from agent_sample.infrastructure.model.ports import ChatMessage
 
 
 def test_gateway_posts_openai_chat_completions() -> None:

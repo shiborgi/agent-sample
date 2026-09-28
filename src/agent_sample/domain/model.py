@@ -90,5 +90,9 @@ class Verdict:
         subject_by_id(self.subject_id)
         if not self.trace:
             raise ValueError("verdict needs the path that led to it")
-        if self.confidence is not None and not 0.0 <= self.confidence <= 1.0:
+        if self.confidence is None:
+            return
+        if not 0.0 <= self.confidence <= 1.0:
             raise ValueError("confidence must be between 0 and 1")
+        if self.trace[-1].kind in ("workflow", "fallback"):
+            raise ValueError("rules and fallback never report confidence")
