@@ -10,13 +10,15 @@ from agent_sample.application.cli.present import format_comparison
 from agent_sample.application.compare import compare_subject
 from agent_sample.application.service import ClassificationService, ClassifyOptions
 from agent_sample.composition import bootstrap
-from agent_sample.domain.model import ClassificationFailed, ContentError, Step, Verdict
-from tests.fakes import FixedClassifier, ScriptedGateway, composition
+from agent_sample.domain.errors import ContentError
+from agent_sample.domain.model import ClassificationFailed, Verdict
+from agent_sample.domain.trace import Step
+from tests.fakes import ENV, FixedClassifier, ScriptedGateway, composition, review_service
 
 
 @pytest.fixture
 def offline(monkeypatch: pytest.MonkeyPatch) -> CliRunner:
-    for name in ("MODEL_API_KEY", "STRATEGY", "ENGINE", "AGENT", "PROMPT_VERSION", "CONTENT_DIR"):
+    for name in (*ENV, "CONTENT_DIR"):
         monkeypatch.delenv(name, raising=False)
     return CliRunner()
 
@@ -35,17 +37,17 @@ def offline(monkeypatch: pytest.MonkeyPatch) -> CliRunner:
 def test_default_cli_works_without_model_credentials(
     offline: CliRunner, message: str, subject_id: str
 ) -> None:
-    service, root = bootstrap()
+    service, review, root = bootstrap()
     result = offline.invoke(
-        build_app(service, root.implementations, root.content), ["classify", message]
+        build_app(service, root.implementations, root.content, review), ["classify", message]
     )
     assert result.exit_code == 0, result.output
     assert result.stdout.split("\t")[0] == subject_id
 
 
 def test_cli_errors_are_short_and_exit_non_zero(offline: CliRunner) -> None:
-    service, root = bootstrap()
-    app = build_app(service, root.implementations, root.content)
+    service, review, root = bootstrap()
+    app = build_app(service, root.implementations, root.content, review)
     result = offline.invoke(app, ["classify", "Bom dia", "--strategy", "agent"])
     assert result.exit_code == 1
     assert result.stderr.strip() == (
@@ -65,7 +67,7 @@ def test_invalid_content_dir_fails_at_startup(
 def test_cli_options_select_strategy_agent_and_versions(offline: CliRunner) -> None:
     root = composition(ScriptedGateway("sales"))
     service = ClassificationService(root.build, ClassifyOptions())
-    app = build_app(service, root.implementations, root.content)
+    app = build_app(service, root.implementations, root.content, review_service(root))
     result = offline.invoke(
         app,
         [
@@ -87,7 +89,7 @@ def test_cli_options_select_strategy_agent_and_versions(offline: CliRunner) -> N
 def test_cli_compare_prompts_and_lists_content(offline: CliRunner) -> None:
     root = composition(ScriptedGateway("billing"))
     service = ClassificationService(root.build, ClassifyOptions())
-    app = build_app(service, root.implementations, root.content)
+    app = build_app(service, root.implementations, root.content, review_service(root))
     compared = offline.invoke(app, ["compare-prompts", "Erro na fatura"])
     assert compared.exit_code == 0, compared.output
     assert "prompt=classify_subject@v1" in compared.stdout

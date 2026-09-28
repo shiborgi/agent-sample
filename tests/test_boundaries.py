@@ -5,8 +5,21 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1] / "src" / "agent_sample"
 PACKAGE = "agent_sample"
 
-# domain: só biblioteca padrão, e nada que diga onde o conteúdo mora.
-DOMAIN_BANNED_STDLIB = {"os", "pathlib", "importlib", "io", "shutil", "glob"}
+# domain: só biblioteca padrão, e nada que diga onde o conteúdo mora, que leia disco ou rode git.
+DOMAIN_BANNED_STDLIB = {
+    "os",
+    "pathlib",
+    "importlib",
+    "io",
+    "shutil",
+    "glob",
+    "posixpath",
+    "ntpath",
+    "subprocess",
+    "tempfile",
+}
+# Executar processos (git) é detalhe de infraestrutura.
+INFRA_ONLY_STDLIB = {"subprocess"}
 # application: só os protocolos de entrada e saída.
 APPLICATION_THIRD_PARTY = {"typer", "a2a", "starlette", "uvicorn"}
 # protocolo de chat com o modelo: só a infra conhece.
@@ -66,6 +79,35 @@ def test_only_composition_wires_infrastructure() -> None:
             assert not any(m.startswith(f"{PACKAGE}.infrastructure") for m in modules), path
     composition = _modules(ast.parse((ROOT / "composition.py").read_text()))
     assert any(module.startswith(f"{PACKAGE}.infrastructure") for module in composition)
+
+
+def test_only_infrastructure_runs_processes() -> None:
+    layers = [*_layer("domain"), *_layer("application")]
+    layers.append(
+        (ROOT / "composition.py", _modules(ast.parse((ROOT / "composition.py").read_text())))
+    )
+    for path, modules in layers:
+        assert not {module.split(".")[0] for module in modules} & INFRA_ONLY_STDLIB, path
+
+
+def test_the_review_use_case_is_covered_by_the_layer_checks() -> None:
+    """As verificações acima varrem as pastas inteiras; isto garante que a revisão está nelas."""
+    scanned = {path.relative_to(ROOT).as_posix() for layer in LAYERS for path, _ in _layer(layer)}
+    for expected in (
+        "domain/review/checks.py",
+        "domain/review/strategies.py",
+        "domain/review/tools.py",
+        "infrastructure/repository/local.py",
+        "infrastructure/repository/git.py",
+        "application/review.py",
+        "application/review_output.py",
+    ):
+        assert expected in scanned, expected
+    review_domain = {m for path, ms in _layer("domain") if "review" in path.parts for m in ms}
+    assert not any(module.startswith(f"{PACKAGE}.infrastructure") for module in review_domain)
+
+
+LAYERS = ("domain", "application", "infrastructure")
 
 
 def _layer(name: str) -> list[tuple[Path, set[str]]]:

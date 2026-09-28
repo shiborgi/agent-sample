@@ -1,4 +1,5 @@
-from agent_sample.domain.model import Step, Verdict
+from agent_sample.domain.model import Verdict
+from agent_sample.domain.trace import Step
 
 
 def artifact_text(verdict: Verdict) -> str:

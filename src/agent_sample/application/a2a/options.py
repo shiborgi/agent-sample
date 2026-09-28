@@ -1,19 +1,31 @@
 from typing import Any
 
-from agent_sample.application.service import ClassifyOptions
-from agent_sample.domain.model import UnknownOption
-
-KEYS = ("strategy", "engine", "agent", "prompt_version")
+from agent_sample.application.service import Options
+from agent_sample.domain.errors import UnknownOption
 
 
-def request_options(metadata: dict[str, Any], defaults: ClassifyOptions) -> ClassifyOptions:
-    """Opções por requisição vêm de `metadata`; o que faltar segue o padrão do servidor."""
-    changes: dict[str, str] = {}
-    for key in KEYS:
+def request_options[O: Options](
+    metadata: dict[str, Any],
+    defaults: O,
+    keys: tuple[str, ...],
+    lists: tuple[str, ...] = (),
+) -> O:
+    """Opções por requisição vêm de `metadata`; o que faltar segue o padrão do servidor.
+
+    Só as chaves listadas são lidas; as de `lists` aceitam uma lista ou texto separado por vírgula.
+    """
+    changes: dict[str, object] = {}
+    for key in keys:
         value = metadata.get(key)
         if value is None:
             continue
-        if not isinstance(value, str):
+        if key in lists:
+            items = value.split(",") if isinstance(value, str) else value
+            if not isinstance(items, list) or not all(isinstance(item, str) for item in items):
+                raise UnknownOption(f"{key} value", repr(value), ("a list of strings",))
+            changes[key] = tuple(item.strip() for item in items if item.strip())
+        elif not isinstance(value, str):
             raise UnknownOption(f"{key} value", repr(value), ("a string",))
-        changes[key] = value
+        else:
+            changes[key] = value
     return defaults.merge(**changes)

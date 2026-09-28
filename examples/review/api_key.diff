@@ -1,0 +1,7 @@
+diff --git a/app/config.py b/app/config.py
+index 429cdfd..1676ec1 100644
+--- a/app/config.py
++++ b/app/config.py
+@@ -1 +1,2 @@
+ TIMEOUT_SECONDS = 30
++API_KEY = "9f8e7d6c5b4a39281706f5e4d3c2b1a0"

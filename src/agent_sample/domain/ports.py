@@ -2,9 +2,9 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Any, Protocol
 
-from agent_sample.domain.content import AgentAnswer, AgentRequest, PromptVersion, SkillVersion
+from agent_sample.domain.content import AgentRequest, PromptVersion, SkillVersion
 from agent_sample.domain.model import Verdict
-from agent_sample.domain.workflow import WorkflowState, WorkflowStep
+from agent_sample.domain.workflow import WorkflowStep
 
 
 @dataclass(frozen=True, slots=True)
@@ -29,20 +29,23 @@ class ToolCatalog(Protocol):
 
 
 class WorkflowEngine(Protocol):
+    """Executa em ordem as etapas que o domínio define, para qualquer estado."""
+
     name: str
 
-    async def run(self, steps: Sequence[WorkflowStep], state: WorkflowState) -> WorkflowState: ...
+    async def run[S](self, steps: Sequence[WorkflowStep[S]], state: S) -> S: ...
 
 
-class Agent(Protocol):
+class Agent[T](Protocol):
     """Um modelo que raciocina, decide quando usar ferramentas e devolve a resposta final.
 
-    Como o prompt vira mensagens e como a resposta do modelo é lida é problema da infra.
+    `T` é a resposta da tarefa (veredito, revisão). Como o prompt vira mensagens e como a
+    resposta do modelo é lida é problema da infra.
     """
 
     name: str
 
-    async def run(self, request: AgentRequest, tools: ToolCatalog) -> AgentAnswer: ...
+    async def run(self, request: AgentRequest, tools: ToolCatalog) -> T: ...
 
 
 class Predictor(Protocol):

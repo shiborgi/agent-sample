@@ -1,0 +1,12 @@
+diff --git a/README.md b/README.md
+index 23884b6..2e5091b 100644
+--- a/README.md
++++ b/README.md
+@@ -1 +1,3 @@
+ # Loja
++
++![logo](assets/logo.png)
+diff --git a/assets/logo.png b/assets/logo.png
+new file mode 100644
+index 0000000..2d36779
+Binary files /dev/null and b/assets/logo.png differ

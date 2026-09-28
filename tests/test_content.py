@@ -4,9 +4,10 @@ from pathlib import Path
 
 import pytest
 
+from agent_sample.application.review import ReviewOptions
 from agent_sample.application.service import ClassifyOptions
-from agent_sample.domain.content import CLASSIFY_TASK
-from agent_sample.domain.model import ContentError
+from agent_sample.domain.content import CLASSIFY_TASK, REVIEW_TASK
+from agent_sample.domain.errors import ContentError
 from agent_sample.infrastructure.content.files import FileContentLibrary
 from tests.fakes import CONTENT_ROOT, ScriptedGateway, composition, copy_content
 
@@ -98,3 +99,36 @@ def test_pinned_skill_version_reaches_the_trace(tmp_path: Path) -> None:
     options = ClassifyOptions(strategy="agent", skills=("subject-boundaries@v2",))
     verdict = asyncio.run(wired.build(options).classify("Erro na fatura"))
     assert verdict.trace[0].skills == ("subject-boundaries@v2",)
+
+
+def test_a_new_review_skill_needs_no_code(tmp_path: Path) -> None:
+    root = copy_content(tmp_path)
+    (root / "skills/go-practices").mkdir()
+    (root / "skills/go-practices/v1.md").write_text(
+        "---\ndescription: boas práticas de Go\ntasks: review_change\n---\nerros sempre checados\n"
+    )
+    draft = composition(ScriptedGateway(), root)
+    assert "go-practices" not in draft.content.offered_skills(REVIEW_TASK)
+    pinned = draft.review_agent(ReviewOptions(skills=("go-practices@v1",)))
+    assert "go-practices" in [skill.name for skill in pinned._skills]
+    FileContentLibrary(root).publish("skill", "go-practices", "v1")
+    offered = composition(ScriptedGateway(), root).content.offered_skills(REVIEW_TASK)
+    assert offered == ("go-practices", "python-practices", "security-review", "test-quality")
+    assert "go-practices" not in composition(ScriptedGateway(), root).content.offered_skills(
+        CLASSIFY_TASK
+    )
+
+
+def test_skill_offered_to_an_unknown_task_fails_at_startup(tmp_path: Path) -> None:
+    root = copy_content(tmp_path)
+    (root / "skills/typo").mkdir()
+    (root / "skills/typo/v1.md").write_text("---\ndescription: d\ntasks: reviw_change\n---\nx\n")
+    with pytest.raises(ContentError, match="unknown task in 'tasks': reviw_change"):
+        composition(ScriptedGateway(), root)
+
+
+def test_review_skill_cannot_be_pinned_on_the_classifier() -> None:
+    with pytest.raises(ContentError, match="invalid skill pin: security-review@v1"):
+        composition(ScriptedGateway()).build(
+            ClassifyOptions(strategy="agent", skills=("security-review@v1",))
+        )

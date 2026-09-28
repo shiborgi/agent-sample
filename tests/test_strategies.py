@@ -4,9 +4,9 @@ import logging
 import pytest
 
 from agent_sample.domain.content import CLASSIFY_TASK, AgentAnswer
+from agent_sample.domain.errors import AgentAttemptFailed
 from agent_sample.domain.model import ClassificationFailed
 from agent_sample.domain.strategies import (
-    AgentAttemptFailed,
     AgentStrategy,
     HybridStrategy,
     PredictionStrategy,

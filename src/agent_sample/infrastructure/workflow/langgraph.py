@@ -3,7 +3,7 @@ from typing import Any
 
 from langgraph.graph import END, START, StateGraph
 
-from agent_sample.domain.workflow import WorkflowState, WorkflowStep
+from agent_sample.domain.workflow import WorkflowStep
 
 
 class LangGraphEngine:
@@ -12,9 +12,9 @@ class LangGraphEngine:
     name = "langgraph"
 
     def __init__(self) -> None:
-        self._graphs: dict[tuple[WorkflowStep, ...], Any] = {}
+        self._graphs: dict[tuple[WorkflowStep[Any], ...], Any] = {}
 
-    async def run(self, steps: Sequence[WorkflowStep], state: WorkflowState) -> WorkflowState:
+    async def run[S](self, steps: Sequence[WorkflowStep[S]], state: S) -> S:
         key = tuple(steps)
         graph = self._graphs.get(key)
         if graph is None:
@@ -23,7 +23,7 @@ class LangGraphEngine:
         return result["state"]
 
 
-def _compile(steps: tuple[WorkflowStep, ...]) -> Any:
+def _compile(steps: tuple[WorkflowStep[Any], ...]) -> Any:
     builder = StateGraph(dict)
     previous = START
     for step in steps:
@@ -34,7 +34,7 @@ def _compile(steps: tuple[WorkflowStep, ...]) -> Any:
     return builder.compile()
 
 
-def _node(step: WorkflowStep) -> Callable[[dict[str, Any]], dict[str, Any]]:
+def _node(step: WorkflowStep[Any]) -> Callable[[dict[str, Any]], dict[str, Any]]:
     def node(graph_state: dict[str, Any]) -> dict[str, Any]:
         return {"state": step.run(graph_state["state"])}
 

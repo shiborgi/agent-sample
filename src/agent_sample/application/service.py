@@ -1,29 +1,37 @@
 from collections.abc import Callable
 from dataclasses import dataclass, replace
+from typing import Self
 
-from agent_sample.domain.model import SubjectError, Verdict
+from agent_sample.domain.errors import DomainError
+from agent_sample.domain.model import Verdict
 from agent_sample.domain.ports import SubjectClassifier
 from agent_sample.domain.session import classify_subject
 
 
+class Options:
+    """Base das opções de cada caso de uso (dataclasses congeladas)."""
+
+    __slots__ = ()
+
+    def merge(self, **changes: object) -> Self:
+        """Aplica só as opções informadas; o resto segue o padrão."""
+        return replace(self, **{key: value for key, value in changes.items() if value})  # type: ignore[type-var]
+
+
 @dataclass(frozen=True, slots=True)
-class ClassifyOptions:
+class ClassifyOptions(Options):
     strategy: str = "hybrid"
     engine: str = "sequential"
     agent: str = "langgraph"
     prompt_version: str | None = None
     skills: tuple[str, ...] = ()
 
-    def merge(self, **changes: object) -> "ClassifyOptions":
-        """Aplica só as opções informadas; o resto segue o padrão."""
-        return replace(self, **{key: value for key, value in changes.items() if value})
-
 
 ClassifierFactory = Callable[[ClassifyOptions], SubjectClassifier]
 
 
 class ClassificationService:
-    """Ponto de entrada único da CLI e do A2A."""
+    """Ponto de entrada único da CLI e do A2A para classificar."""
 
     def __init__(self, factory: ClassifierFactory, defaults: ClassifyOptions) -> None:
         self._factory = factory
@@ -37,6 +45,6 @@ class ClassificationService:
 
 
 def error_message(exc: BaseException) -> str:
-    if isinstance(exc, SubjectError):
+    if isinstance(exc, DomainError):
         return f"error: {exc}"
     return f"unexpected error: {type(exc).__name__}: {exc}"

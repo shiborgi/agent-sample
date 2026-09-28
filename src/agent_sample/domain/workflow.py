@@ -13,9 +13,11 @@ class WorkflowState:
 
 
 @dataclass(frozen=True, slots=True)
-class WorkflowStep:
+class WorkflowStep[S]:
+    """Uma etapa do workflow: função pura do estado. Serve a qualquer caso de uso."""
+
     name: str
-    run: Callable[[WorkflowState], WorkflowState]
+    run: Callable[[S], S]
 
 
 def _normalize(state: WorkflowState) -> WorkflowState:
@@ -31,7 +33,7 @@ def _decide(state: WorkflowState) -> WorkflowState:
 
 
 # O workflow determinístico: o domínio define as etapas; os motores só as executam em ordem.
-WORKFLOW: tuple[WorkflowStep, ...] = (
+WORKFLOW: tuple[WorkflowStep[WorkflowState], ...] = (
     WorkflowStep("normalize", _normalize),
     WorkflowStep("match", _match),
     WorkflowStep("decide", _decide),

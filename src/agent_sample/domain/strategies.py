@@ -1,27 +1,15 @@
 import logging
 
-from agent_sample.domain.content import AgentRequest, PromptVersion, SkillVersion
-from agent_sample.domain.model import (
-    SAFE_SUBJECT,
-    ClassificationFailed,
-    Outcome,
-    Step,
-    SubjectError,
-    Verdict,
-    subject_by_id,
-)
+from agent_sample.domain.content import AgentAnswer, AgentRequest, PromptVersion, SkillVersion
+from agent_sample.domain.errors import AgentAttemptFailed
+from agent_sample.domain.model import SAFE_SUBJECT, ClassificationFailed, Verdict, subject_by_id
 from agent_sample.domain.ports import Agent, Predictor, WorkflowEngine
 from agent_sample.domain.rules import RuleOutcome
-from agent_sample.domain.tools import Toolbox
+from agent_sample.domain.tools import TOOLS, RunContext, Toolbox
+from agent_sample.domain.trace import Outcome, Step
 from agent_sample.domain.workflow import WORKFLOW, WorkflowState
 
 logger = logging.getLogger(__name__)
-
-
-class AgentAttemptFailed(SubjectError):
-    def __init__(self, step: Step, cause: Exception) -> None:
-        self.step = step
-        super().__init__(f"{step.kind}:{step.name} failed: {cause}")
 
 
 class WorkflowStrategy:
@@ -49,7 +37,7 @@ class AgentStrategy:
 
     def __init__(
         self,
-        agent: Agent,
+        agent: Agent[AgentAnswer],
         prompt: PromptVersion,
         skills: tuple[SkillVersion, ...],
     ) -> None:
@@ -59,7 +47,7 @@ class AgentStrategy:
         self.name = f"agent:{agent.name}"
 
     async def consult(self, text: str) -> tuple[str, str, Step]:
-        toolbox = Toolbox(self._skills)
+        toolbox = Toolbox(RunContext(self._skills), TOOLS)
         try:
             answer = await self._agent.run(AgentRequest(text, self._prompt, self._skills), toolbox)
             subject_by_id(answer.subject_id)
@@ -71,7 +59,7 @@ class AgentStrategy:
         subject_id, rationale, step = await self.consult(text)
         return Verdict(subject_id, rationale, self.name, (step,))
 
-    def _step(self, outcome: Outcome, detail: str, toolbox: Toolbox) -> Step:
+    def _step(self, outcome: Outcome, detail: str, toolbox: Toolbox[RunContext]) -> Step:
         return Step(
             "agent",
             self._agent.name,

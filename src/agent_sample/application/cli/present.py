@@ -1,6 +1,7 @@
 from agent_sample.application.compare import ComparisonRow
 from agent_sample.domain.content import PromptVersion, SkillVersion
-from agent_sample.domain.model import Step, Verdict
+from agent_sample.domain.model import Verdict
+from agent_sample.domain.trace import Step
 
 
 def format_verdict(verdict: Verdict) -> str:

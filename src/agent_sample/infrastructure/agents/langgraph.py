@@ -2,25 +2,25 @@ from typing import Any, Literal
 
 from langgraph.graph import END, START, StateGraph
 
-from agent_sample.domain.content import AgentAnswer, AgentRequest
-from agent_sample.domain.model import ClassificationFailed
-from agent_sample.domain.policy import MAX_TOOL_ROUNDS
+from agent_sample.domain.content import AgentRequest
+from agent_sample.domain.errors import AgentFailed
 from agent_sample.domain.ports import ToolCatalog
-from agent_sample.infrastructure.agents.answer import parse_answer
+from agent_sample.infrastructure.agents.answer import AnswerReader
 from agent_sample.infrastructure.content.render import render_prompt
 from agent_sample.infrastructure.model.ports import ChatMessage, ModelGateway, ToolCall
 
 
-class LangGraphAgent:
+class LangGraphAgent[T]:
     """Laço ReAct explícito: o modelo decide quando chamar ferramentas e quando responder."""
 
     name = "langgraph"
 
-    def __init__(self, gateway: ModelGateway) -> None:
+    def __init__(self, gateway: ModelGateway, read: AnswerReader[T]) -> None:
         self._gateway = gateway
+        self._read = read
 
-    async def run(self, request: AgentRequest, tools: ToolCatalog) -> AgentAnswer:
-        graph = _graph(self._gateway, tools)
+    async def run(self, request: AgentRequest, tools: ToolCatalog) -> T:
+        graph = _graph(self._gateway, tools, request.max_tool_rounds)
         system = render_prompt(request.prompt, request.skills)
         result = await graph.ainvoke(
             {
@@ -33,14 +33,14 @@ class LangGraphAgent:
         )
         last = _load(result["messages"][-1])
         if last.role != "assistant" or last.tool_calls:
-            raise ClassificationFailed(self.name, "agent ended without an answer")
-        return parse_answer(last.content, self.name)
+            raise AgentFailed(self.name, "agent ended without an answer")
+        return self._read(last.content, self.name)
 
 
-def _graph(gateway: ModelGateway, catalog: ToolCatalog) -> Any:
+def _graph(gateway: ModelGateway, catalog: ToolCatalog, max_rounds: int) -> Any:
     async def model(state: dict[str, Any]) -> dict[str, Any]:
-        if state["rounds"] >= MAX_TOOL_ROUNDS:
-            raise ClassificationFailed("langgraph", "tool round limit")
+        if state["rounds"] >= max_rounds:
+            raise AgentFailed("langgraph", "tool round limit")
         completion = await gateway.complete(
             [_load(message) for message in state["messages"]],
             catalog.specs(),
@@ -60,13 +60,13 @@ def _graph(gateway: ModelGateway, catalog: ToolCatalog) -> Any:
             try:
                 output = await catalog.call(call.name, call.arguments)
             except KeyError as exc:
-                raise ClassificationFailed("langgraph", f"unknown tool: {call.name}") from exc
+                raise AgentFailed("langgraph", f"unknown tool: {call.name}") from exc
             results.append(_dump(ChatMessage(role="tool", content=output, tool_call_id=call.id)))
         return {"messages": [*state["messages"], *results], "rounds": state["rounds"]}
 
     def route(state: dict[str, Any]) -> Literal["tools", "end"]:
         last = _load(state["messages"][-1])
-        if last.tool_calls and state["rounds"] <= MAX_TOOL_ROUNDS:
+        if last.tool_calls and state["rounds"] <= max_rounds:
             return "tools"
         return "end"
 

@@ -2,8 +2,9 @@ import asyncio
 
 import pytest
 
-from agent_sample.domain.model import EmptyMessage, Step, UnknownSubject, Verdict
+from agent_sample.domain.model import EmptyMessage, UnknownSubject, Verdict
 from agent_sample.domain.session import classify_subject
+from agent_sample.domain.trace import Step
 from tests.fakes import FixedClassifier
 
 STEP = Step("workflow", "test", "decided", "")

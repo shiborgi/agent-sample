@@ -3,14 +3,26 @@
     "classify_subject": {
       "v1": "658d0ba66b8a8c88b4b8b0512cca3ac3826147acd3891c720277fe43b81d9d1a",
       "v2": "2cd3b4c3ba7d4f2f08833977cb4962ac46ecd09fd9e85fbdc34e471e78bc930f"
+    },
+    "review_change": {
+      "v1": "e432aef8e5f6007f2804681d37464c5f9f4558451e7688f1bd217c948a2c09bf"
     }
   },
   "skills": {
     "out-of-scope": {
       "v1": "b3fa5025df1dfa221e366d774ffb01bbb36d2a7cd63685e251ca08599d176212"
     },
+    "python-practices": {
+      "v1": "bc23a8b1cd913e84c18a1b619b0b8c3cea9294bfd43a89c0bf0642c8b6c0e64d"
+    },
+    "security-review": {
+      "v1": "f3b682ef59bac6beede522e9fcc74853de4a9b7447d34718017b347b4658b075"
+    },
     "subject-boundaries": {
       "v1": "d3958084adb4c866b517b5ec350ade42ae5bf2c8c166f468d8f8d618f38e9cf3"
+    },
+    "test-quality": {
+      "v1": "8f0584089430e5fa304299e26a61544da246478bd47f51c83b1592e208e7530b"
     }
   }
 }

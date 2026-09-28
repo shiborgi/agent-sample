@@ -1,0 +1,10 @@
+diff --git a/app/pricing.py b/app/pricing.py
+index 0768e32..b2fc637 100644
+--- a/app/pricing.py
++++ b/app/pricing.py
+@@ -3,4 +3,4 @@ def subtotal(prices):
+ 
+ 
+ def apply_discount(value, percent):
+-    return value * (1 - percent / 100)
++    return round(value * (1 - percent / 100), 2)

@@ -17,9 +17,9 @@ class RunContext:
 
 
 @dataclass(frozen=True, slots=True)
-class Tool:
+class Tool[C: RunContext]:
     spec: ToolSpec
-    run: Callable[[RunContext, dict[str, Any]], str]
+    run: Callable[[C, dict[str, Any]], str]
 
 
 def _list_subjects(context: RunContext, arguments: dict[str, Any]) -> str:
@@ -41,8 +41,23 @@ def _load_skill(context: RunContext, arguments: dict[str, Any]) -> str:
     return skill.body
 
 
-# Ferramentas oferecidas a todos os agentes. Adicionar uma aqui vale para todos os frameworks.
-TOOLS: tuple[Tool, ...] = (
+# Serve a qualquer tarefa: o agente só vê o índice das skills e carrega o corpo quando precisa.
+LOAD_SKILL: Tool[Any] = Tool(
+    ToolSpec(
+        name="load_skill",
+        description="Carrega as instruções completas de uma skill listada no prompt.",
+        parameters={
+            "type": "object",
+            "properties": {"name": {"type": "string", "description": "nome da skill"}},
+            "required": ["name"],
+            "additionalProperties": False,
+        },
+    ),
+    _load_skill,
+)
+
+# Ferramentas do classificador. Adicionar uma aqui vale para todos os frameworks.
+TOOLS: tuple[Tool[RunContext], ...] = (
     Tool(
         ToolSpec(
             name="list_subjects",
@@ -51,27 +66,15 @@ TOOLS: tuple[Tool, ...] = (
         ),
         _list_subjects,
     ),
-    Tool(
-        ToolSpec(
-            name="load_skill",
-            description="Carrega as instruções completas de uma skill listada no prompt.",
-            parameters={
-                "type": "object",
-                "properties": {"name": {"type": "string", "description": "nome da skill"}},
-                "required": ["name"],
-                "additionalProperties": False,
-            },
-        ),
-        _load_skill,
-    ),
+    LOAD_SKILL,
 )
 
 
-class Toolbox:
+class Toolbox[C: RunContext]:
     """Ferramentas de uma execução, no formato que os agentes consomem (`ToolCatalog`)."""
 
-    def __init__(self, skills: tuple[SkillVersion, ...], tools: tuple[Tool, ...] = TOOLS) -> None:
-        self.context = RunContext(skills)
+    def __init__(self, context: C, tools: tuple[Tool[C], ...]) -> None:
+        self.context = context
         self._tools = {tool.spec.name: tool for tool in tools}
 
     def specs(self) -> tuple[ToolSpec, ...]:

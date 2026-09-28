@@ -5,7 +5,7 @@ from dataclasses import replace
 from pathlib import Path
 
 from agent_sample.domain.content import AgentTask, PromptVersion, SkillVersion
-from agent_sample.domain.model import ContentError
+from agent_sample.domain.errors import ContentError
 from agent_sample.infrastructure.content.render import unknown_placeholders
 
 VERSION = re.compile(r"v(\d+)")
@@ -39,6 +39,37 @@ class FileContentLibrary:
         self.prompt(task.prompt)
         for skill in task.skills:
             self.skill(skill)
+
+    def check_tasks(self, tasks: tuple[AgentTask, ...]) -> None:
+        """Valida cada tarefa e recusa skill que se oferece a uma tarefa que não existe."""
+        for task in tasks:
+            self.require(task)
+        known = {task.name for task in tasks}
+        for skill in self.skills():
+            unknown = sorted(set(skill.tasks) - known)
+            if unknown:
+                raise ContentError(
+                    f"skill {skill.ref}: unknown task in 'tasks': {', '.join(unknown)} "
+                    f"(known: {', '.join(sorted(known))})"
+                )
+
+    def offered_skills(self, task: AgentTask) -> tuple[str, ...]:
+        """As skills declaradas pela tarefa e as publicadas cuja versão padrão se oferece a ela."""
+        tagged = sorted(
+            name
+            for name, versions in self._skills.items()
+            if name not in task.skills
+            and any(item.published for item in versions.values())
+            and task.name in self.skill(name).tasks
+        )
+        return (*task.skills, *tagged)
+
+    def accepts(self, task: AgentTask, name: str, version: str) -> bool:
+        """Se `name@version` pode ser fixada para a tarefa (declarada ou marcada nessa versão)."""
+        if name in task.skills:
+            return True
+        item = self._skills.get(name, {}).get(version)
+        return item is not None and task.name in item.tasks
 
     def prompt(self, name: str, version: str | None = None) -> PromptVersion:
         return _pick("prompt", name, version, self._prompts)
@@ -111,7 +142,8 @@ class FileContentLibrary:
         if not description or not body:
             raise ContentError(f"{path}: skill needs a 'description' in frontmatter and a body")
         published = self._published("skills", name, version, path)
-        return SkillVersion(name, version, description, body, published)
+        tasks = tuple(item.strip() for item in header.get("tasks", "").split(",") if item.strip())
+        return SkillVersion(name, version, description, body, published, tasks)
 
     def _check_manifest_entries(self) -> None:
         for kind, names in self._manifest.items():

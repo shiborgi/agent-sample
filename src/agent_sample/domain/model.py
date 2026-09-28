@@ -1,5 +1,7 @@
 from dataclasses import dataclass
-from typing import Literal
+
+from agent_sample.domain.errors import DomainError
+from agent_sample.domain.trace import Step
 
 
 @dataclass(frozen=True, slots=True)
@@ -19,7 +21,7 @@ SUBJECTS: tuple[Subject, ...] = (
 SAFE_SUBJECT = "other"
 
 
-class SubjectError(Exception):
+class SubjectError(DomainError):
     """Erro esperado da classificação, com mensagem pronta para quem usa."""
 
 
@@ -41,41 +43,11 @@ class ClassificationFailed(SubjectError, RuntimeError):
         super().__init__(f"{source}: {reason}")
 
 
-class ModelUnavailable(SubjectError, RuntimeError):
-    def __init__(self, reason: str) -> None:
-        super().__init__(f"model unavailable: {reason}")
-
-
-class UnknownOption(SubjectError, ValueError):
-    def __init__(self, kind: str, value: str, choices: tuple[str, ...]) -> None:
-        super().__init__(f"unknown {kind}: {value} (choose from {', '.join(choices)})")
-
-
-class ContentError(SubjectError, ValueError):
-    """Prompt ou skill inválido, inexistente ou alterado depois de publicado."""
-
-
 def subject_by_id(subject_id: str) -> Subject:
     for subject in SUBJECTS:
         if subject.id == subject_id:
             return subject
     raise UnknownSubject(subject_id)
-
-
-StepKind = Literal["workflow", "agent", "prediction", "fallback"]
-Outcome = Literal["decided", "undecided", "failed"]
-
-
-@dataclass(frozen=True, slots=True)
-class Step:
-    """Uma etapa do caminho até o veredito."""
-
-    kind: StepKind
-    name: str
-    outcome: Outcome
-    detail: str
-    prompt: str | None = None
-    skills: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
