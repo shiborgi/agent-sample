@@ -1,1 +1,1 @@
-"""Framework implementations of the domain ports."""
+"""Como executar: motores, agentes, modelo e conteúdo versionado."""

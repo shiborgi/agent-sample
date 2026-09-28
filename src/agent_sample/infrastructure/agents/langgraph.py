@@ -5,32 +5,31 @@ from langgraph.graph import END, START, StateGraph
 from agent_sample.domain.model import ClassificationFailed
 from agent_sample.domain.policy import MAX_TOOL_ROUNDS
 from agent_sample.domain.ports import ChatMessage, ModelGateway, ToolCall, ToolCatalog
-from agent_sample.infrastructure.runtime.parsing import parse_verdict
-from agent_sample.infrastructure.runtime.prompt import classify_prompt
 
 
-class LangGraphSubjectClassifier:
-    runtime = "langgraph"
+class LangGraphAgent:
+    """Laço ReAct explícito: o modelo decide quando chamar ferramentas e quando responder."""
 
-    def __init__(self, gateway: ModelGateway, catalog: ToolCatalog) -> None:
+    name = "langgraph"
+
+    def __init__(self, gateway: ModelGateway) -> None:
         self._gateway = gateway
-        self._catalog = catalog
 
-    async def classify(self, text: str) -> Any:
-        graph = _graph(self._gateway, self._catalog)
+    async def run(self, system: str, user: str, tools: ToolCatalog) -> str:
+        graph = _graph(self._gateway, tools)
         result = await graph.ainvoke(
             {
                 "messages": [
-                    _dump(ChatMessage(role="system", content=classify_prompt())),
-                    _dump(ChatMessage(role="user", content=text)),
+                    _dump(ChatMessage(role="system", content=system)),
+                    _dump(ChatMessage(role="user", content=user)),
                 ],
                 "rounds": 0,
             }
         )
         last = _load(result["messages"][-1])
         if last.role != "assistant" or last.tool_calls:
-            raise ClassificationFailed(self.runtime, "classifier ended without an answer")
-        return parse_verdict(last.content, self.runtime)
+            raise ClassificationFailed(self.name, "agent ended without an answer")
+        return last.content
 
 
 def _graph(gateway: ModelGateway, catalog: ToolCatalog) -> Any:

@@ -1,1 +1,1 @@
-"""Framework-agnostic subject classification."""
+"""O que fazer: regras, etapas, estratégias, ferramentas e contrato do veredito."""

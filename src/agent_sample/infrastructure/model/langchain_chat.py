@@ -67,7 +67,9 @@ def tool_spec(tool: Any) -> ToolSpec:
         )
     schema: dict[str, Any] = {"type": "object", "properties": {}}
     args_schema = getattr(tool, "args_schema", None)
-    if args_schema is not None and hasattr(args_schema, "model_json_schema"):
+    if isinstance(args_schema, dict):
+        schema = args_schema
+    elif args_schema is not None and hasattr(args_schema, "model_json_schema"):
         schema = args_schema.model_json_schema()
     return ToolSpec(
         name=str(tool.name),

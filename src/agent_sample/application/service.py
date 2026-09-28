@@ -1,0 +1,42 @@
+from collections.abc import Callable
+from dataclasses import dataclass, replace
+
+from agent_sample.domain.model import SubjectError, Verdict
+from agent_sample.domain.ports import SubjectClassifier
+from agent_sample.domain.session import classify_subject
+
+
+@dataclass(frozen=True, slots=True)
+class ClassifyOptions:
+    strategy: str = "hybrid"
+    engine: str = "sequential"
+    agent: str = "langgraph"
+    prompt_version: str | None = None
+    skills: tuple[str, ...] = ()
+
+    def merge(self, **changes: object) -> "ClassifyOptions":
+        """Aplica só as opções informadas; o resto segue o padrão."""
+        return replace(self, **{key: value for key, value in changes.items() if value})
+
+
+ClassifierFactory = Callable[[ClassifyOptions], SubjectClassifier]
+
+
+class ClassificationService:
+    """Ponto de entrada único da CLI e do A2A."""
+
+    def __init__(self, factory: ClassifierFactory, defaults: ClassifyOptions) -> None:
+        self._factory = factory
+        self.defaults = defaults
+
+    def build(self, options: ClassifyOptions) -> SubjectClassifier:
+        return self._factory(options)
+
+    async def classify(self, text: str, options: ClassifyOptions | None = None) -> Verdict:
+        return await classify_subject(text, self.build(options or self.defaults))
+
+
+def error_message(exc: BaseException) -> str:
+    if isinstance(exc, SubjectError):
+        return f"error: {exc}"
+    return f"unexpected error: {type(exc).__name__}: {exc}"

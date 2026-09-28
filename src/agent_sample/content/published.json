@@ -1,0 +1,16 @@
+{
+  "prompts": {
+    "classify_subject": {
+      "v1": "658d0ba66b8a8c88b4b8b0512cca3ac3826147acd3891c720277fe43b81d9d1a",
+      "v2": "2cd3b4c3ba7d4f2f08833977cb4962ac46ecd09fd9e85fbdc34e471e78bc930f"
+    }
+  },
+  "skills": {
+    "out-of-scope": {
+      "v1": "b3fa5025df1dfa221e366d774ffb01bbb36d2a7cd63685e251ca08599d176212"
+    },
+    "subject-boundaries": {
+      "v1": "d3958084adb4c866b517b5ec350ade42ae5bf2c8c166f468d8f8d618f38e9cf3"
+    }
+  }
+}

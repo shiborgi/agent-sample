@@ -1,1 +1,1 @@
-"""Typer and A2A adapters over the domain verdict."""
+"""Typer e A2A: só traduzem entrada e saída para o serviço de classificação."""

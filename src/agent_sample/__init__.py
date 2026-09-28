@@ -1,1 +1,1 @@
-"""Subject classification with one domain verdict and three infra runtimes."""
+"""Classificação de assunto: workflow determinístico, agentes e estratégia híbrida."""

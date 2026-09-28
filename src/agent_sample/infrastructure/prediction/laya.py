@@ -2,18 +2,19 @@ import asyncio
 from collections.abc import Callable
 from typing import Any
 
-from agent_sample.domain.model import SUBJECTS, ClassificationFailed, Verdict
+from agent_sample.domain.model import SUBJECTS, ClassificationFailed
+from agent_sample.domain.ports import Prediction
 
 Predict = Callable[..., dict[str, Any]]
 
 
-class LayaSubjectClassifier:
-    runtime = "laya"
+class LayaPredictor:
+    name = "laya"
 
     def __init__(self, predict: Predict | None = None) -> None:
         self._predict = predict
 
-    async def classify(self, text: str) -> Verdict:
+    async def predict(self, text: str) -> Prediction:
         questions = {
             "subject": {
                 "type": "choice",
@@ -21,22 +22,24 @@ class LayaSubjectClassifier:
                 "criteria": {subject.id: subject.description for subject in SUBJECTS},
             }
         }
+        result = await asyncio.to_thread(self._predict_fn(), text, questions)
         try:
-            result = await asyncio.to_thread(self._predict_fn(), text, questions)
             answer = result["answers"]["subject"]
             confidence = answer.get("answer_confidence", answer.get("confidence"))
-            return Verdict(
+            return Prediction(
                 subject_id=str(answer["choice"]),
                 confidence=None if confidence is None else float(confidence),
-                rationale="laya choice",
-                runtime=self.runtime,
             )
         except (KeyError, TypeError, ValueError) as exc:
-            raise ClassificationFailed(self.runtime, "response was not a subject choice") from exc
+            raise ClassificationFailed(self.name, "response was not a subject choice") from exc
 
     def _predict_fn(self) -> Predict:
         if self._predict is not None:
             return self._predict
-        from laya import Router
-
+        try:
+            from laya import Router
+        except ImportError as exc:
+            raise ClassificationFailed(
+                self.name, "install the extra: uv sync --extra laya"
+            ) from exc
         return Router().predict

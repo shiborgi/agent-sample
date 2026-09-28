@@ -9,14 +9,14 @@ from a2a.server.events import EventQueue
 from a2a.server.tasks import TaskUpdater
 from a2a.types import TaskState
 
+from agent_sample.application.a2a.options import request_options
 from agent_sample.application.a2a.text import artifact_text
-from agent_sample.domain.ports import SubjectClassifier
-from agent_sample.domain.session import classify_subject
+from agent_sample.application.service import ClassificationService, error_message
 
 
 class SubjectExecutor(AgentExecutor):
-    def __init__(self, classifier: SubjectClassifier) -> None:
-        self._classifier = classifier
+    def __init__(self, service: ClassificationService) -> None:
+        self._service = service
 
     async def execute(self, context: RequestContext, event_queue: EventQueue) -> None:
         if context.current_task:
@@ -30,14 +30,15 @@ class SubjectExecutor(AgentExecutor):
             message=new_text_message("Classificando assunto..."),
         )
         query = get_message_text(context.message) if context.message else ""
-        verdict = await classify_subject(query or "", self._classifier)
-        await updater.add_artifact(
-            parts=[new_text_part(text=artifact_text(verdict), media_type="text/plain")]
-        )
-        await updater.update_status(
-            state=TaskState.TASK_STATE_COMPLETED,
-            message=new_text_message(artifact_text(verdict)),
-        )
+        try:
+            options = request_options(context.metadata, self._service.defaults)
+            verdict = await self._service.classify(query or "", options)
+        except Exception as exc:
+            await updater.failed(new_text_message(error_message(exc)))
+            return
+        text = artifact_text(verdict)
+        await updater.add_artifact(parts=[new_text_part(text=text, media_type="text/plain")])
+        await updater.complete(new_text_message(text))
 
     async def cancel(self, context: RequestContext, event_queue: EventQueue) -> None:
         task = context.current_task
