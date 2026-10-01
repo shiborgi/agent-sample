@@ -1,3 +1,7 @@
+> Histórico: planejamento do classificador de assunto, que o projeto deixou de ser. O caso de uso
+> atual é o revisor de código descrito em `docs/CODE_REVIEWER.md` e no `README.md`.
+
+
 # Tarefa: evoluir o agent-sample para uma arquitetura híbrida, coesa e extensível
 
 ## Contexto

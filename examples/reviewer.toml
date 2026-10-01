@@ -1,0 +1,33 @@
+# Exemplo de configuração de projeto. Use com: REVIEWER_CONFIG=examples/reviewer.toml
+# Depois de mudar as fontes, grave o lock: `uv run reviewer plugins lock`.
+
+[[sources]]
+name = "examples"
+kind = "dir"
+path = "plugins"
+
+# Pacote Python instalado que declara plugins no grupo de entry points
+# `agent_sample.review_plugins`:
+# [[sources]]
+# name = "company"
+# kind = "package"
+# entry_point = "company-review"
+
+# Repositório git fixado em commit ou tag (branch não é aceito):
+# [[sources]]
+# name = "community"
+# kind = "git"
+# url = "https://github.com/example/review-plugins.git"
+# ref = "v1.2.0"
+# subdir = "plugins"
+
+[plugins]
+disabled = []
+
+[limits]
+max_tool_rounds = 8
+timeout_seconds = 120
+max_subagents = 3
+
+[pull_requests]
+allowed_hosts = ["api.github.com"]

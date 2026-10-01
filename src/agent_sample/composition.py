@@ -1,97 +1,86 @@
-"""Único ponto que conhece as implementações concretas e as liga às abstrações do domínio."""
+"""Único ponto que conhece as implementações concretas e as liga às portas do domínio."""
 
+import importlib.metadata
 import os
 import sys
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from pathlib import Path
 
-from agent_sample.application.service import ClassificationService, ClassifyOptions, error_message
-from agent_sample.domain.content import CLASSIFY_TASK, SkillVersion
-from agent_sample.domain.model import ContentError, SubjectError, UnknownOption
-from agent_sample.domain.ports import Agent, Predictor, SubjectClassifier, WorkflowEngine
-from agent_sample.domain.strategies import (
-    AgentStrategy,
-    HybridStrategy,
-    PredictionStrategy,
-    WorkflowStrategy,
-)
-from agent_sample.infrastructure.agents.deepagents import DeepAgentsAgent
-from agent_sample.infrastructure.agents.langgraph import LangGraphAgent
-from agent_sample.infrastructure.content.files import FileContentLibrary
+import httpx
+
+from agent_sample.application.service import ReviewOptions, ReviewService, error_message
+from agent_sample.domain.model import ReviewError, UnknownOption
+from agent_sample.domain.ports import AgentReviewer, PullRequestHost, Renderer
+from agent_sample.domain.workflow import ReviewContext
+from agent_sample.infrastructure.agents.deepagents import DeepAgentsReviewer
 from agent_sample.infrastructure.model.openai_compatible import OpenAICompatibleGateway
 from agent_sample.infrastructure.model.ports import ModelGateway
 from agent_sample.infrastructure.model.unconfigured import UnconfiguredGateway
-from agent_sample.infrastructure.prediction.laya import LayaPredictor
-from agent_sample.infrastructure.workflow.langgraph import LangGraphEngine
+from agent_sample.infrastructure.output.pr_comments import PullRequestCommentsRenderer
+from agent_sample.infrastructure.output.structured import JsonRenderer
+from agent_sample.infrastructure.output.text import TextRenderer
+from agent_sample.infrastructure.plugins.catalog import PluginCatalog, load_catalog, lock_sources
+from agent_sample.infrastructure.plugins.sources import ReviewerConfig, builtin_source, load_config
+from agent_sample.infrastructure.repository.git import GitRevisionSource
+from agent_sample.infrastructure.repository.worktree import RepositoryReaders
+from agent_sample.infrastructure.rest.client import RestClient
+from agent_sample.infrastructure.rest.github import GitHubPullRequests, PullRequestPublisher
 from agent_sample.infrastructure.workflow.sequential import SequentialEngine
 
-CONTENT_ROOT = Path(__file__).parent / "content"
+BUILTIN_PLUGINS = Path(__file__).parent / "plugins"
+REVIEWER_VERSION = importlib.metadata.version("agent-sample")
 
-ENGINES: dict[str, Callable[[], WorkflowEngine]] = {
-    "sequential": SequentialEngine,
-    "langgraph": LangGraphEngine,
+Env = Mapping[str, str]
+
+FORMATS: dict[str, Callable[[], Renderer]] = {
+    "text": TextRenderer,
+    "json": JsonRenderer,
+    "pr-comments": PullRequestCommentsRenderer,
 }
-AGENTS: dict[str, Callable[[ModelGateway], Agent]] = {
-    "langgraph": LangGraphAgent,
-    "deepagents": DeepAgentsAgent,
+# Provedor de PR: (config, ambiente, transporte opcional) -> PullRequestHost.
+PROVIDERS: dict[
+    str, Callable[[ReviewerConfig, Env, httpx.AsyncBaseTransport | None], PullRequestHost]
+] = {
+    "github": lambda config, env, transport: PullRequestPublisher(
+        GitHubPullRequests(
+            RestClient(
+                env.get("GITHUB_API_URL", "https://api.github.com"),
+                config.allowed_hosts,
+                env.get("GITHUB_TOKEN") or None,
+                transport=transport,
+            )
+        )
+    ),
+}
+# Framework da etapa agêntica: (gateway, motivo de indisponibilidade) -> AgentReviewer.
+AGENTS: dict[str, Callable[[ModelGateway, str | None], AgentReviewer]] = {
+    "deepagents": DeepAgentsReviewer,
 }
 
 
 class Composition:
     def __init__(
         self,
-        content: FileContentLibrary,
-        gateway: ModelGateway,
-        predictor: Predictor,
+        config: ReviewerConfig,
+        catalog: PluginCatalog,
+        agent: AgentReviewer,
+        hosts: tuple[PullRequestHost, ...],
     ) -> None:
-        content.require(CLASSIFY_TASK)
-        self.content = content
-        self._gateway = gateway
-        self._predictor = predictor
+        self.config = config
+        self.catalog = catalog
+        self._agent = agent
+        self._hosts = hosts
 
-    def build(self, options: ClassifyOptions) -> SubjectClassifier:
-        return _choose("strategy", options.strategy, STRATEGIES)(self, options)
-
-    def implementations(self) -> tuple[SubjectClassifier, ...]:
-        """Todas as formas concretas de executar, para comparação lado a lado."""
-        base = ClassifyOptions()
-        return (
-            *(self.build(base.merge(strategy="workflow", engine=name)) for name in ENGINES),
-            *(self.build(base.merge(strategy="agent", agent=name)) for name in AGENTS),
-            self.build(base.merge(strategy="prediction")),
+    def context(self, options: ReviewOptions) -> ReviewContext:
+        return ReviewContext(
+            revisions=GitRevisionSource(),
+            hosts=self._hosts,
+            readers=RepositoryReaders(),
+            agent=self._agent,
+            capabilities=self.catalog.select(options.plugins, options.skills),
+            renderer=_choose("format", options.format, FORMATS)(),
+            limits=self.config.limits,
         )
-
-    def workflow(self, options: ClassifyOptions) -> WorkflowStrategy:
-        return WorkflowStrategy(_choose("engine", options.engine, ENGINES)())
-
-    def agent(self, options: ClassifyOptions) -> AgentStrategy:
-        agent = _choose("agent", options.agent, AGENTS)(self._gateway)
-        prompt = self.content.prompt(CLASSIFY_TASK.prompt, options.prompt_version)
-        return AgentStrategy(agent, prompt, self._skills(options.skills))
-
-    def prediction(self, options: ClassifyOptions) -> PredictionStrategy:
-        del options
-        return PredictionStrategy(self._predictor)
-
-    def _skills(self, pins: tuple[str, ...]) -> tuple[SkillVersion, ...]:
-        versions: dict[str, str] = {}
-        for pin in pins:
-            name, sep, version = pin.partition("@")
-            if not sep or name not in CLASSIFY_TASK.skills:
-                raise ContentError(
-                    f"invalid skill pin: {pin} (use name@version with one of "
-                    f"{', '.join(CLASSIFY_TASK.skills)})"
-                )
-            versions[name] = version
-        return tuple(self.content.skill(name, versions.get(name)) for name in CLASSIFY_TASK.skills)
-
-
-STRATEGIES: dict[str, Callable[[Composition, ClassifyOptions], SubjectClassifier]] = {
-    "workflow": Composition.workflow,
-    "agent": Composition.agent,
-    "hybrid": lambda root, options: HybridStrategy(root.workflow(options), root.agent(options)),
-    "prediction": Composition.prediction,
-}
 
 
 def _choose[T](kind: str, name: str, registry: dict[str, T]) -> T:
@@ -100,52 +89,68 @@ def _choose[T](kind: str, name: str, registry: dict[str, T]) -> T:
     return registry[name]
 
 
-def gateway_from_env() -> ModelGateway:
-    api_key = os.environ.get("MODEL_API_KEY", "")
+def gateway_from_env(env: Env) -> tuple[ModelGateway, str | None]:
+    api_key = env.get("MODEL_API_KEY", "")
     if not api_key:
-        return UnconfiguredGateway("MODEL_API_KEY is not set")
-    return OpenAICompatibleGateway(
-        base_url=os.environ.get("MODEL_BASE_URL", "https://api.openai.com/v1"),
+        reason = "MODEL_API_KEY is not set"
+        return UnconfiguredGateway(reason), reason
+    gateway = OpenAICompatibleGateway(
+        base_url=env.get("MODEL_BASE_URL", "https://api.openai.com/v1"),
         api_key=api_key,
-        model=os.environ.get("MODEL_NAME", "gpt-4o-mini"),
+        model=env.get("MODEL_NAME", "gpt-4o-mini"),
     )
+    return gateway, None
 
 
-def defaults_from_env() -> ClassifyOptions:
-    return ClassifyOptions().merge(
-        strategy=os.environ.get("STRATEGY"),
-        engine=os.environ.get("ENGINE"),
-        agent=os.environ.get("AGENT"),
-        prompt_version=os.environ.get("PROMPT_VERSION"),
+def load_settings(env: Env) -> tuple[ReviewerConfig, Path]:
+    home = Path(env.get("HOME", str(Path.home())))
+    user = (
+        Path(env.get("XDG_CONFIG_HOME", str(home / ".config"))) / "agent-sample" / "reviewer.toml"
     )
+    project = Path(env.get("REVIEWER_CONFIG", "reviewer.toml"))
+    cache = Path(env.get("XDG_CACHE_HOME", str(home / ".cache"))) / "agent-sample" / "git"
+    return load_config(builtin_source(BUILTIN_PLUGINS), user, project), cache
 
 
-def bootstrap() -> tuple[ClassificationService, Composition]:
-    """Carrega e valida conteúdo e padrões na inicialização, antes de qualquer classificação."""
-    content = FileContentLibrary(Path(os.environ.get("CONTENT_DIR", CONTENT_ROOT)))
-    composition = Composition(content, gateway_from_env(), LayaPredictor())
-    service = ClassificationService(composition.build, defaults_from_env())
-    service.build(service.defaults)
-    return service, composition
+def bootstrap(
+    env: Env = os.environ,
+    gateway: ModelGateway | None = None,
+    transport: httpx.AsyncBaseTransport | None = None,
+) -> ReviewService:
+    """Carrega e valida configuração, lock, plugins e padrões antes de qualquer revisão."""
+    config, cache = load_settings(env)
+    catalog = load_catalog(config, REVIEWER_VERSION, cache)
+    if gateway is None:
+        gateway, unavailable = gateway_from_env(env)
+    else:
+        unavailable = None
+    agent = _choose("agent", env.get("REVIEW_AGENT", "deepagents"), AGENTS)(gateway, unavailable)
+    hosts = tuple(factory(config, env, transport) for factory in PROVIDERS.values())
+    composition = Composition(config, catalog, agent, hosts)
+    defaults = ReviewOptions().merge(
+        mode=env.get("REVIEW_MODE"),
+        format=env.get("REVIEW_FORMAT"),
+    )
+    return ReviewService(composition.context, SequentialEngine(), catalog, defaults)
+
+
+def lock(scopes: tuple[str, ...], env: Env = os.environ) -> list[str]:
+    config, cache = load_settings(env)
+    return lock_sources(config, REVIEWER_VERSION, cache, scopes)
 
 
 def cli_main() -> None:
     from agent_sample.application.cli.app import run
 
-    service, composition = _bootstrap_or_exit()
-    run(service, composition.implementations, composition.content)
+    run(bootstrap, lock)
 
 
 def a2a_main() -> None:
     from agent_sample.application.a2a.server import serve
 
-    service, _ = _bootstrap_or_exit()
-    serve(service)
-
-
-def _bootstrap_or_exit() -> tuple[ClassificationService, Composition]:
     try:
-        return bootstrap()
-    except SubjectError as exc:
+        service = bootstrap()
+    except ReviewError as exc:
         print(error_message(exc), file=sys.stderr)
-        raise SystemExit(1) from None
+        raise SystemExit(2) from None
+    serve(service, REVIEWER_VERSION)

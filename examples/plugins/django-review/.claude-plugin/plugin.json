@@ -1,0 +1,7 @@
+{
+  "name": "django-review",
+  "version": "1.0.0",
+  "description": "Exemplo de plugin externo: revisão de segurança específica de Django.",
+  "author": {"name": "example"},
+  "reviewer": {"requires": ">=1.0.0"}
+}
