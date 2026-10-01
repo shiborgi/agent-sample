@@ -1,0 +1,10 @@
+diff --git a/src/billing/discount.py b/src/billing/discount.py
+index 4c5d6e7..5d6e7f8 100644
+--- a/src/billing/discount.py
++++ b/src/billing/discount.py
+@@ -1,2 +1,4 @@
+ def apply_discount(price: int, percent: int) -> int:
+-    return price - price * percent // 100
++    if percent > 50:
++        percent = 50
++    return price - price * percent // 100

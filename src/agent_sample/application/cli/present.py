@@ -1,52 +1,82 @@
-from agent_sample.application.compare import ComparisonRow
-from agent_sample.domain.content import PromptVersion, SkillVersion
-from agent_sample.domain.model import Step, Verdict
+from agent_sample.domain.model import Review
+from agent_sample.domain.ports import CapabilityCatalog
 
 
-def format_verdict(verdict: Verdict) -> str:
-    lines = ["\t".join(_fields(verdict))]
-    lines.extend(f"  {index}. {format_step(step)}" for index, step in enumerate(verdict.trace, 1))
+def format_plugins(catalog: CapabilityCatalog) -> str:
+    defaults = {plugin.ref for plugin in catalog.select(()).plugins}
+    lines = ["plugin\tversion\tsource\tstatus\tsha256"]
+    for plugin in catalog.plugins():
+        status = "enabled" if catalog.enabled(plugin) else "disabled"
+        if plugin.ref in defaults:
+            status += ",default"
+        lines.append(
+            f"{plugin.name}\t{plugin.version}\t{plugin.source}\t{status}\t{plugin.digest[:12]}"
+        )
+    lines.extend(_conflicts(catalog))
     return "\n".join(lines)
 
 
-def format_step(step: Step) -> str:
-    parts = [f"{step.kind}:{step.name}", step.outcome]
-    if step.prompt is not None:
-        parts.append(f"prompt={step.prompt}")
-        parts.append(f"skills={','.join(step.skills) or '-'}")
-    return f"{' '.join(parts)} — {step.detail}"
-
-
-def format_comparison(rows: tuple[ComparisonRow, ...]) -> str:
-    lines = ["implementation\tsubject\tdecided_by\tconfidence\trationale"]
-    for row in rows:
-        if row.verdict is None:
-            lines.append(f"{row.name}\terror\t-\tn/a\t{row.error}")
-            continue
-        lines.append("\t".join((row.name, *_fields(row.verdict))))
-        lines.extend(f"  {format_step(step)}" for step in row.verdict.trace if step.prompt)
+def format_plugin(catalog: CapabilityCatalog, name: str) -> str:
+    plugin = catalog.select((name,)).plugins[-1]
+    lines = [
+        f"{plugin.ref} — {plugin.description}",
+        f"author: {plugin.author or '-'}",
+        f"source: {plugin.source}",
+        f"sha256: {plugin.digest}",
+        "skills:",
+        *(f"  {skill.name}: {skill.description}" for skill in plugin.skills),
+        "reviewers:",
+        *(
+            f"  {item.name}: {item.description} [tools: {', '.join(item.tools) or '-'}; "
+            f"skills: {', '.join(item.skills) or '-'}; languages: "
+            f"{', '.join(item.languages) or 'any'}; focus: {', '.join(item.focus) or 'any'}]"
+            for item in plugin.reviewers
+        ),
+    ]
+    if plugin.warnings:
+        lines.append("warnings:")
+        lines.extend(f"  {warning}" for warning in plugin.warnings)
     return "\n".join(lines)
 
 
-def format_prompts(prompts: tuple[PromptVersion, ...]) -> str:
-    lines = ["prompt\tversion\tstatus"]
-    lines.extend(f"{item.name}\t{item.version}\t{_status(item.published)}" for item in prompts)
+def format_skills(catalog: CapabilityCatalog) -> str:
+    lines = ["skill\tplugin\tversion\tsha256\tdescription"]
+    for skill in catalog.select(()).skills:
+        lines.append(
+            f"{skill.name}\t{skill.plugin}\t{skill.version}\t{skill.digest[:12]}\t"
+            f"{skill.description}"
+        )
+    lines.extend(_conflicts(catalog, kinds=("skill",)))
     return "\n".join(lines)
 
 
-def format_skills(skills: tuple[SkillVersion, ...]) -> str:
-    lines = ["skill\tversion\tstatus\tdescription"]
-    lines.extend(
-        f"{item.name}\t{item.version}\t{_status(item.published)}\t{item.description}"
-        for item in skills
-    )
+def _conflicts(
+    catalog: CapabilityCatalog, kinds: tuple[str, ...] = ("plugin", "skill", "reviewer")
+) -> list[str]:
+    conflicts = [item for item in catalog.conflicts() if item.kind in kinds]
+    if not conflicts:
+        return []
+    return [
+        "conflicts:",
+        *(
+            f"  {item.kind} {item.name}: {item.winner} wins over {', '.join(item.shadowed)}"
+            for item in conflicts
+        ),
+    ]
+
+
+def format_comparison(rows: list[tuple[str, Review]]) -> str:
+    lines = ["variant\tdecision\tfindings\tfailures"]
+    for variant, review in rows:
+        lines.append(
+            f"{variant}\t{review.decision}\t{len(review.findings)}\t{len(review.trace.failures)}"
+        )
+    for variant, review in rows:
+        lines.append(f"\n[{variant}] {review.summary}")
+        lines.extend(
+            f"  [{item.severity}/{item.category}] {item.location} — {item.description} "
+            f"({item.origin.label})"
+            for item in review.findings
+        )
+        lines.extend(f"  failure: {failure}" for failure in review.trace.failures)
     return "\n".join(lines)
-
-
-def _fields(verdict: Verdict) -> tuple[str, str, str, str]:
-    confidence = "n/a" if verdict.confidence is None else f"{verdict.confidence:.2f}"
-    return verdict.subject_id, verdict.decided_by, confidence, verdict.rationale
-
-
-def _status(published: bool) -> str:
-    return "published" if published else "draft"

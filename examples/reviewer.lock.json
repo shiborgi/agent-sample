@@ -1,0 +1,14 @@
+{
+  "lock_version": 1,
+  "sources": {
+    "examples": {
+      "kind": "dir",
+      "location": "plugins",
+      "ref": "",
+      "resolved": "",
+      "plugins": {
+        "django-review@1.0.0": "aea05cb62f32ca3538bb46beca07b62472d51b5af8f467b669b543af8d9c264b"
+      }
+    }
+  }
+}

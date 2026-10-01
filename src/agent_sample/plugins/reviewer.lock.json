@@ -1,0 +1,14 @@
+{
+  "lock_version": 1,
+  "sources": {
+    "builtin": {
+      "kind": "dir",
+      "location": ".",
+      "ref": "",
+      "resolved": "",
+      "plugins": {
+        "code-review@1.0.0": "3365652d0aeaaf511dfca378541fbe1923bc729f166069117a40dd4b823f1162"
+      }
+    }
+  }
+}

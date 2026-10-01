@@ -1,1 +1,1 @@
-"""O que fazer: regras, etapas, estratégias, ferramentas e contrato do veredito."""
+"""O que fazer: modelo da revisão, workflow, checagens, políticas, ferramentas e portas."""

@@ -1,6 +1,6 @@
 from collections.abc import Sequence
 
-from agent_sample.domain.model import ModelUnavailable
+from agent_sample.domain.model import AgentUnavailable
 from agent_sample.domain.ports import ToolSpec
 from agent_sample.infrastructure.model.ports import ChatMessage, Completion
 
@@ -17,4 +17,4 @@ class UnconfiguredGateway:
         tools: Sequence[ToolSpec] = (),
     ) -> Completion:
         del messages, tools
-        raise ModelUnavailable(self._reason)
+        raise AgentUnavailable(self._reason)

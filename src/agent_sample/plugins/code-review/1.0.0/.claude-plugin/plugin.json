@@ -1,0 +1,7 @@
+{
+  "name": "code-review",
+  "version": "1.0.0",
+  "description": "Critérios de revisão embutidos: revisor principal, segurança, testes e Python.",
+  "author": {"name": "agent-sample"},
+  "reviewer": {"requires": ">=1.0.0,<2.0.0"}
+}

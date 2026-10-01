@@ -1,7 +1,7 @@
 [project]
 name = "agent-sample"
-version = "0.1.0"
-description = "Classify a message subject through Typer and A2A, with swappable runtimes."
+version = "1.0.0"
+description = "Code review agent: deterministic workflow with a bounded agentic step, via CLI and A2A."
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
@@ -9,17 +9,16 @@ dependencies = [
     "deepagents>=0.7.19",
     "httpx>=0.28",
     "langchain-core>=0.3",
+    "langchain>=1.0",
     "langgraph>=0.4",
+    "pyyaml>=6.0",
     "typer>=0.15",
     "uvicorn>=0.34",
 ]
 
-[project.optional-dependencies]
-laya = ["laya>=0.3.21"]
-
 [project.scripts]
-subject = "agent_sample.composition:cli_main"
-subject-a2a = "agent_sample.composition:a2a_main"
+reviewer = "agent_sample.composition:cli_main"
+reviewer-a2a = "agent_sample.composition:a2a_main"
 
 [dependency-groups]
 dev = [

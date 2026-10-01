@@ -1,0 +1,23 @@
+diff --git a/src/orders/service.py b/src/orders/service.py
+index 7d1e2c3..8e2f3d4 100644
+--- a/src/orders/service.py
++++ b/src/orders/service.py
+@@ -4,5 +4,6 @@ from orders.repository import Repository
+ def total(repository: Repository, order_id: int) -> int:
+     order = repository.get(order_id)
++    print("DEBUG order", order)
+     return sum(item.price * item.quantity for item in order.items)
+ 
+ 
+diff --git a/tests/test_service.py b/tests/test_service.py
+index 2a3b4c5..3b4c5d6 100644
+--- a/tests/test_service.py
++++ b/tests/test_service.py
+@@ -3,3 +3,7 @@ from orders.service import total
+ 
+ def test_total_sums_items(repository):
+     assert total(repository, 1) == 30
++
++
++def test_total_of_empty_order(repository):
++    assert total(repository, 2) == 0
